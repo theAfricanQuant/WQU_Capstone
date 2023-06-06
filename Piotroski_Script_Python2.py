@@ -119,21 +119,17 @@ class Output(object):
 
     def _calc_annualized_return(self, series):
         avg_daily_return = series.mean()
-        ann_return = avg_daily_return * self._freq
-        return ann_return
+        return avg_daily_return * self._freq
 
     def _calc_annualized_std_dev(self, series):
         series_std = series.std()
-        ann_std = series_std * (np.sqrt(self._freq))
-        return ann_std
+        return series_std * (np.sqrt(self._freq))
 
     def _calc_sharpe(self, ann_returns, ann_stds):
-        sharpe = ann_returns.divide(ann_stds)
-        return sharpe
+        return ann_returns.divide(ann_stds)
 
     def _calc_hwm(self, wealthpath):
-        hwm = wealthpath.expanding().max()
-        return hwm
+        return wealthpath.expanding().max()
 
     def _calc_wealthpath(self, series):
         if series.iloc[0] != 0:
@@ -142,76 +138,58 @@ class Output(object):
             series.loc[set_dt] = 0.0
             series = series.sort_index()
 
-        cum_prod = (1.0 + series).cumprod()
-        return cum_prod
+        return (1.0 + series).cumprod()
 
     def _calc_drawdowns(self, wealthpath):
         hwm = self._calc_hwm(wealthpath)
-        drawdowns = wealthpath.divide(hwm).subtract(1.0)
-        return drawdowns
+        return wealthpath.divide(hwm).subtract(1.0)
 
     def _calc_lake_ratios(self, hwm, wps):
         lakes = hwm.subtract(wps)
         mountains = hwm.subtract(lakes)
-        lake_ratios = lakes.sum() / mountains.sum()
-        return lake_ratios
+        return lakes.sum() / mountains.sum()
 
     def _calc_gain_to_pain_ratio(self, series):
         total_return_series = (1.0 + series).cumprod().subtract(1.0)
         total_return = total_return_series.iloc[-1]
 
         loss_returns_series = self.__get_loss_returns(series).abs()
-        if not loss_returns_series.empty:
-            total_loss_return_series = (1.0 + loss_returns_series).cumprod().subtract(1.0)
-            total_loss_return = total_loss_return_series.iloc[-1]
-
-            gpr = total_return / total_loss_return
-        else:
-            gpr = np.nan
-        return gpr
+        if loss_returns_series.empty:
+            return np.nan
+        total_loss_return_series = (1.0 + loss_returns_series).cumprod().subtract(1.0)
+        return total_return / total_loss_return_series.iloc[-1]
 
     def __get_win_returns(self, series):
-        win_returns = series[series >= 0.0]
-        return win_returns
+        return series[series >= 0.0]
 
     def __get_loss_returns(self, series):
-        loss_returns = series[series < 0.0]
-        return loss_returns
+        return series[series < 0.0]
 
     def _calc_win_rate(self, series):
         win_returns = self.__get_win_returns(series)
-        rate = float(len(win_returns)) / float(len(series))
-        return rate
+        return float(len(win_returns)) / float(len(series))
 
     def _calc_loss_rate(self, series):
         loss_returns = self.__get_loss_returns(series)
-        rate = float(len(loss_returns)) / float(len(series))
-        return rate
+        return float(len(loss_returns)) / float(len(series))
 
     def _calc_avg_win_return(self, series):
         win_returns = self.__get_win_returns(series)
-        avg = win_returns.mean()
-        return avg
+        return win_returns.mean()
 
     def _calc_avg_loss_return(self, series):
         loss_returns = self.__get_loss_returns(series)
-        avg = loss_returns.mean()
-        return avg
+        return loss_returns.mean()
 
     def _calc_winloss_ratio(self, series):
         wins = self.__get_win_returns(series)
         losses = self.__get_loss_returns(series)
-        if len(losses) == 0.0:
-            wl_ratio = np.nan
-        else:
-            wl_ratio = len(wins) / len(losses)
-        return wl_ratio
+        return np.nan if len(losses) == 0.0 else len(wins) / len(losses)
 
     def _calc_expectancy(self, win_rates, avg_win, loss_rates, avg_loss):
         w_win = win_rates.multiply(avg_win)
         w_loss = loss_rates.multiply(avg_loss)
-        exp = w_win.subtract(w_loss)
-        return exp
+        return w_win.subtract(w_loss)
 
     def generate_output(self):
         hwms = self.wealthpaths.apply(self._calc_hwm)
@@ -303,9 +281,7 @@ def piotroski_rank(year, score_long, score_short, long_short):
     if long_short == 'long_short':
         long_port = calculation[calculation['F Score'] > score_long]
         short_port = calculation[calculation['F Score'] < score_short]
-        long_short_port = pd.concat([long_port, short_port], ignore_index=True)
-
-        return long_short_port
+        return pd.concat([long_port, short_port], ignore_index=True)
 
 
 def price_to_book(year, score):
@@ -326,8 +302,7 @@ def find_percentile2(year, quantile):
     here is used the inverse of HBM which is the price to book
     '''
     df = price_to_book(year,0)
-    df2 = df['Price to Book'].quantile(quantile)
-    return df2
+    return df['Price to Book'].quantile(quantile)
 
 
 def ibov_return(data, year):
@@ -335,20 +310,17 @@ def ibov_return(data, year):
     calculate the index return
     '''
     ibov_return = close['IBOV']
+    year_buy = f'{str(year + 1)}-04-30'
     if year == 2017:
-        year_buy = str(year+1)+'-04-30'
-        year_sell = str(year+2)+'-01-31'
-        return_year = (ibov_return.loc[year_sell] / ibov_return.loc[year_buy]-1)
-        #return_year = return_year.to_frame().reset_index()
-        #return_year = return_year.rename(columns = {'index': 'Stock', 0: 'Return'})
-    
+        year_sell = f'{str(year + 2)}-01-31'
+            #return_year = return_year.to_frame().reset_index()
+            #return_year = return_year.rename(columns = {'index': 'Stock', 0: 'Return'})
+
     else:
-        year_buy = str(year+1)+'-04-30'
-        year_sell = str(year+2)+'-04-30'
-        return_year = (ibov_return.loc[year_sell] / ibov_return.loc[year_buy]-1)
-        #return_year = return_year.to_frame().reset_index()
-        #return_year = return_year.rename(columns = {'index': 'Stock', 0: 'Return'})
-    return return_year
+        year_sell = f'{str(year + 2)}-04-30'
+            #return_year = return_year.to_frame().reset_index()
+            #return_year = return_year.rename(columns = {'index': 'Stock', 0: 'Return'})
+    return (ibov_return.loc[year_sell] / ibov_return.loc[year_buy]-1)
 
 
 def piotroski_return_switch(year, score_long, score_short, long_short, print_result):
@@ -459,13 +431,8 @@ def piotroski_return_momentum_switch(year, score_long, score_short, threshold_mo
 
 
 def portfolio_statistcs(year, tipo):
-    if year == 2018:
-        start = str(year)+'-05'
-        end = str(year+1)+'-01'
-    else:
-        start = str(year)+'-05'
-        end = str(year+1)+'-04'
-    
+    start = f'{str(year)}-05'
+    end = f'{str(year + 1)}-01' if year == 2018 else f'{str(year + 1)}-04'
     if tipo == 'piotroski':
         stocks_selected = piotroski_return_switch(year-1, 6, 3, 'long', 2)['Stock']
     elif tipo == 'momentum':
@@ -477,7 +444,7 @@ def portfolio_statistcs(year, tipo):
     total = year['Cumulative_Return'][-1]-1
     #year['MTSA4_Ret'] = year['VGOR4']+1
     #year['MTSA4_Cum'] = year['MTSA4_Ret'].cumprod()
-    
+
     return year, total
 
 
